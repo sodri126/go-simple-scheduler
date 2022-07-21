@@ -9,13 +9,14 @@ import (
 	"time"
 )
 
+var fn = func(ctx context.Context) {}
+
 func TestAddDurationScheduler(t *testing.T) {
 	t.Run("Positive Case", func(t *testing.T) {
 		t.Run("Add one key", func(t *testing.T) {
 			t.Parallel()
 			key := "add#1"
 			duration := 1 * time.Millisecond
-			fn := func(ctx context.Context) {}
 			schedule := NewScheduler()
 			err := schedule.Add(key, duration, fn)
 			assert.Nil(t, err)
@@ -38,7 +39,6 @@ func TestAddDurationScheduler(t *testing.T) {
 				go func(index int) {
 					defer wg.Done()
 					key := fmt.Sprintf("add#%d", index)
-					fn := func(ctx context.Context) {}
 					err := schedule.Add(key, 10*time.Millisecond, fn)
 					assert.Nil(t, err)
 				}(i)
@@ -60,7 +60,6 @@ func TestAddDurationScheduler(t *testing.T) {
 			t.Parallel()
 			key := "add#1"
 			duration := 1 * time.Millisecond
-			fn := func(ctx context.Context) {}
 			schedule := NewScheduler()
 			err := schedule.Add(key, duration, fn)
 			assert.Nil(t, err)
@@ -79,7 +78,6 @@ func TestAddDurationScheduler(t *testing.T) {
 			for i := 1; i <= 5; i++ {
 				key := fmt.Sprintf("add#%d", i)
 				duration := time.Duration(i) * time.Millisecond
-				fn := func(ctx context.Context) {}
 				err := schedule.Add(key, duration, fn)
 				assert.Nil(t, err)
 			}
