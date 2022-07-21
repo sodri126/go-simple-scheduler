@@ -82,7 +82,7 @@ func TestAddDurationScheduler(t *testing.T) {
 				assert.Nil(t, err)
 			}
 
-			err := schedule.add("add#5", 1*time.Millisecond, func(ctx context.Context) {})
+			err := schedule.Add("add#5", 1*time.Millisecond, func(ctx context.Context) {})
 			assert.NotNil(t, err)
 			assert.Equal(t, err, ErrKeyIsExists)
 			time.Sleep(10 * time.Millisecond)
