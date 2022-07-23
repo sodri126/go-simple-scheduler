@@ -90,5 +90,25 @@ func TestAddDurationScheduler(t *testing.T) {
 			assert.Equal(t, isExists, false)
 			assert.Nil(t, tm)
 		})
+
+		t.Run("Add multiple key and key is not exists", func(t *testing.T) {
+			t.Parallel()
+			var wg sync.WaitGroup
+			schedule := NewScheduler()
+			for i := 1; i <= 1000; i++ {
+				wg.Add(1)
+				go func(index int) {
+					defer wg.Done()
+					key := fmt.Sprintf("add#%d", index)
+					err := schedule.Add(key, 10*time.Millisecond, fn)
+					assert.Nil(t, err)
+				}(i)
+			}
+
+			wg.Wait()
+			isExists, tm := schedule.read("add#1001")
+			assert.Equal(t, isExists, false)
+			assert.Nil(t, tm)
+		})
 	})
 }
