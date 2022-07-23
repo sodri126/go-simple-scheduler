@@ -8,13 +8,39 @@ import (
 
 type FnScheduler func(ctx context.Context)
 
+const (
+	defaultUTCTimeZone = "UTC"
+)
+
 type Scheduler struct {
 	schedulers map[string]*time.Timer
 	mutex      sync.RWMutex
+	config     Config
 }
 
-func NewScheduler() *Scheduler {
-	return &Scheduler{schedulers: make(map[string]*time.Timer)}
+type Config struct {
+	TimeZone string
+}
+
+func NewScheduler(configs ...Config) *Scheduler {
+	config := Config{}
+	if len(configs) > 0 {
+		config = configs[0]
+	}
+	return &Scheduler{
+		schedulers: make(map[string]*time.Timer),
+		mutex:      sync.RWMutex{},
+		config:     config,
+	}
+}
+
+func (s *Scheduler) getTimeZone() *time.Location {
+	loc, err := time.LoadLocation(s.config.TimeZone)
+	if err != nil {
+		loc, _ = time.LoadLocation(defaultUTCTimeZone)
+	}
+
+	return loc
 }
 
 func (s *Scheduler) read(key string) (bool, *time.Timer) {
@@ -84,12 +110,27 @@ func (s *Scheduler) replace(key string, duration time.Duration, fn FnScheduler) 
 	return
 }
 
+func (s *Scheduler) subtractDateTime(dateTime time.Time) (duration time.Duration, err error) {
+	var (
+		now        = time.Now().In(s.getTimeZone())
+		dateTimeTZ = dateTime.In(s.getTimeZone())
+	)
+
+	if dateTimeTZ.Before(now) {
+		err = ErrDateTimeLessThanNow
+		return
+	}
+
+	duration = dateTimeTZ.Sub(now)
+	return
+}
+
 func (s *Scheduler) Add(key string, duration time.Duration, fn FnScheduler) (err error) {
 	return s.add(key, duration, fn)
 }
 
 func (s *Scheduler) AddDate(key string, dateTime time.Time, fn FnScheduler) (err error) {
-	duration, err := subtractDateTime(dateTime)
+	duration, err := s.subtractDateTime(dateTime)
 	if err != nil {
 		return
 	}
@@ -107,7 +148,7 @@ func (s *Scheduler) RescheduleTime(key string, duration time.Duration) (err erro
 }
 
 func (s *Scheduler) RescheduleDateTime(key string, dateTime time.Time) (err error) {
-	duration, err := subtractDateTime(dateTime)
+	duration, err := s.subtractDateTime(dateTime)
 	if err != nil {
 		return
 	}
@@ -121,7 +162,7 @@ func (s *Scheduler) Replace(key string, duration time.Duration, fn FnScheduler) 
 }
 
 func (s *Scheduler) ReplaceDateTime(key string, dateTime time.Time, fn FnScheduler) (err error) {
-	duration, err := subtractDateTime(dateTime)
+	duration, err := s.subtractDateTime(dateTime)
 	if err != nil {
 		return
 	}
