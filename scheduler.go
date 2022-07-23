@@ -16,6 +16,7 @@ type Scheduler struct {
 	schedulers map[string]*time.Timer
 	mutex      sync.RWMutex
 	config     Config
+	locationTZ *time.Location
 }
 
 type Config struct {
@@ -27,20 +28,23 @@ func NewScheduler(configs ...Config) *Scheduler {
 	if len(configs) > 0 {
 		config = configs[0]
 	}
-	return &Scheduler{
+
+	scheduler := &Scheduler{
 		schedulers: make(map[string]*time.Timer),
 		mutex:      sync.RWMutex{},
 		config:     config,
 	}
+
+	scheduler.loadTZ()
+	return scheduler
 }
 
-func (s *Scheduler) getTimeZone() *time.Location {
-	loc, err := time.LoadLocation(s.config.TimeZone)
+func (s *Scheduler) loadTZ() {
+	var err error
+	s.locationTZ, err = time.LoadLocation(s.config.TimeZone)
 	if err != nil {
-		loc, _ = time.LoadLocation(defaultUTCTimeZone)
+		s.locationTZ, _ = time.LoadLocation(defaultUTCTimeZone)
 	}
-
-	return loc
 }
 
 func (s *Scheduler) read(key string) (bool, *time.Timer) {
@@ -112,8 +116,8 @@ func (s *Scheduler) replace(key string, duration time.Duration, fn FnScheduler) 
 
 func (s *Scheduler) subtractDateTime(dateTime time.Time) (duration time.Duration, err error) {
 	var (
-		now        = time.Now().In(s.getTimeZone())
-		dateTimeTZ = dateTime.In(s.getTimeZone())
+		now        = time.Now().In(s.locationTZ)
+		dateTimeTZ = dateTime.In(s.locationTZ)
 	)
 
 	if dateTimeTZ.Before(now) {
