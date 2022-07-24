@@ -326,11 +326,11 @@ func TestRescheduleScheduler(t *testing.T) {
 				isExists, tm := schedule.read(value)
 				assert.Equal(t, isExists, true)
 				assert.NotNil(t, tm)
-				err := schedule.Reschedule(value, 650*time.Millisecond)
+				err := schedule.Reschedule(value, 500*time.Millisecond)
 				assert.Nil(t, err)
 			}
 
-			time.Sleep(750 * time.Millisecond)
+			time.Sleep(1 * time.Second)
 			for _, key := range randomList {
 				isExists, tm := schedule.read(key)
 				assert.Equal(t, isExists, false)
