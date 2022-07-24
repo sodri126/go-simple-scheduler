@@ -216,5 +216,76 @@ func TestAddDateTimeScheduler(t *testing.T) {
 }
 
 func TestCancelScheduler(t *testing.T) {
+	t.Run("Positive Case", func(t *testing.T) {
+		t.Run("Add multiple key and cancel one key", func(t *testing.T) {
+			t.Parallel()
+			var wg sync.WaitGroup
+			schedule := NewScheduler()
+			keyRandom := fmt.Sprintf("add#%d", randomNumber(1, 1000))
+			for i := 1; i <= 1000; i++ {
+				wg.Add(1)
+				go func(index int) {
+					defer wg.Done()
+					key := fmt.Sprintf("add#%d", index)
+					err := schedule.AddDate(key, time.Now().UTC().Add(10*time.Millisecond), fn)
+					assert.Nil(t, err)
+				}(i)
+			}
 
+			wg.Wait()
+			err := schedule.Cancel(keyRandom)
+			assert.Nil(t, err)
+			isExists, tm := schedule.read(keyRandom)
+			assert.Equal(t, isExists, false)
+			assert.Nil(t, tm)
+		})
+	})
+
+	t.Run("Negative Case", func(t *testing.T) {
+		t.Run("Add multiple key and key is not exists", func(t *testing.T) {
+			t.Parallel()
+			var wg sync.WaitGroup
+			schedule := NewScheduler()
+			for i := 1; i <= 1000; i++ {
+				wg.Add(1)
+				go func(index int) {
+					defer wg.Done()
+					key := fmt.Sprintf("add#%d", index)
+					err := schedule.AddDate(key, time.Now().UTC().Add(10*time.Millisecond), fn)
+					assert.Nil(t, err)
+				}(i)
+			}
+
+			wg.Wait()
+			err := schedule.Cancel("add#1001")
+			assert.NotNil(t, err)
+			assert.Equal(t, err, ErrKeyIsNotExists)
+		})
+
+		t.Run("Add multiple key and cancel twice", func(t *testing.T) {
+			t.Parallel()
+			var wg sync.WaitGroup
+			schedule := NewScheduler()
+			keyRandom := fmt.Sprintf("add#%d", randomNumber(1, 1000))
+			for i := 1; i <= 1000; i++ {
+				wg.Add(1)
+				go func(index int) {
+					defer wg.Done()
+					key := fmt.Sprintf("add#%d", index)
+					err := schedule.AddDate(key, time.Now().UTC().Add(10*time.Millisecond), fn)
+					assert.Nil(t, err)
+				}(i)
+			}
+
+			wg.Wait()
+			err := schedule.Cancel(keyRandom)
+			assert.Nil(t, err)
+			isExists, tm := schedule.read(keyRandom)
+			assert.Equal(t, isExists, false)
+			assert.Nil(t, tm)
+			err = schedule.Cancel(keyRandom)
+			assert.NotNil(t, err)
+			assert.Equal(t, err, ErrKeyIsNotExists)
+		})
+	})
 }
