@@ -446,3 +446,141 @@ func TestRescheduleDateTimeScheduler(t *testing.T) {
 		})
 	})
 }
+
+func TestReplaceScheduler(t *testing.T) {
+	t.Run("Positive Case", func(t *testing.T) {
+		t.Run("Add multiple key and replace one scheduler", func(t *testing.T) {
+			t.Parallel()
+			var wg sync.WaitGroup
+			schedule := NewScheduler()
+			keyRandom := fmt.Sprintf("add#%d", randomNumber(1, 1000))
+			for i := 1; i <= 1000; i++ {
+				wg.Add(1)
+				go func(index int) {
+					defer wg.Done()
+					key := fmt.Sprintf("add#%d", index)
+					err := schedule.Add(key, 10*time.Millisecond, fn)
+					assert.Nil(t, err)
+				}(i)
+			}
+
+			wg.Wait()
+			isExists, tm := schedule.read(keyRandom)
+			assert.Equal(t, isExists, true)
+			assert.NotNil(t, tm)
+			err := schedule.Replace(keyRandom, 15*time.Millisecond, fn)
+			assert.Nil(t, err)
+			time.Sleep(20 * time.Millisecond)
+			isExists, tm = schedule.read(keyRandom)
+			assert.Equal(t, isExists, false)
+			assert.Nil(t, tm)
+		})
+	})
+
+	t.Run("Negative Case", func(t *testing.T) {
+		t.Run("Add multiple key and replace key is not exists", func(t *testing.T) {
+			t.Parallel()
+			var wg sync.WaitGroup
+			schedule := NewScheduler()
+			wg.Add(1000)
+			for i := 1; i <= 1000; i++ {
+				go func(index int) {
+					defer wg.Done()
+					key := fmt.Sprintf("add#%d", index)
+					duration := 10 * time.Millisecond
+					err := schedule.Add(key, duration, fn)
+					assert.Nil(t, err)
+				}(i)
+			}
+
+			wg.Wait()
+			err := schedule.Replace("add#1001", 20*time.Millisecond, fn)
+			assert.NotNil(t, err)
+			assert.Equal(t, err, ErrKeyIsNotExists)
+			isExists, tm := schedule.read("add#1001")
+			assert.Equal(t, isExists, false)
+			assert.Nil(t, tm)
+		})
+	})
+}
+
+func TestReplaceDateTimeScheduler(t *testing.T) {
+	t.Run("Positive Case", func(t *testing.T) {
+		t.Run("Add multiple key and replace some keys", func(t *testing.T) {
+			t.Parallel()
+			var wg sync.WaitGroup
+			schedule := NewScheduler()
+			randomNo := randomNumber(1, 1000)
+			randomList := make(map[int]string)
+			for i := 1; i <= randomNo; i++ {
+				randomList[i] = fmt.Sprintf("add#%d", i)
+			}
+
+			wg.Add(1000)
+			for i := 1; i <= 1000; i++ {
+				go func(index int) {
+					defer wg.Done()
+					key := fmt.Sprintf("add#%d", index)
+					duration := 10 * time.Millisecond
+					err := schedule.AddDate(key, time.Now().UTC().Add(duration), fn)
+					assert.Nil(t, err)
+				}(i)
+			}
+
+			wg.Wait()
+			for _, value := range randomList {
+				isExists, tm := schedule.read(value)
+				assert.Equal(t, isExists, true)
+				assert.NotNil(t, tm)
+				err := schedule.ReplaceDateTime(value, time.Now().UTC().Add(15*time.Millisecond), fn)
+				assert.Nil(t, err)
+			}
+
+			time.Sleep(25 * time.Millisecond)
+			for _, key := range randomList {
+				isExists, tm := schedule.read(key)
+				assert.Equal(t, isExists, false)
+				assert.Nil(t, tm)
+			}
+		})
+	})
+
+	t.Run("Negative Case", func(t *testing.T) {
+		t.Run("Add multiple key and replace key is not exists", func(t *testing.T) {
+			t.Parallel()
+			var wg sync.WaitGroup
+			schedule := NewScheduler()
+			wg.Add(1000)
+			for i := 1; i <= 1000; i++ {
+				go func(index int) {
+					defer wg.Done()
+					key := fmt.Sprintf("add#%d", index)
+					duration := 10 * time.Millisecond
+					err := schedule.AddDate(key, time.Now().UTC().Add(duration), fn)
+					assert.Nil(t, err)
+				}(i)
+			}
+
+			wg.Wait()
+			err := schedule.ReplaceDateTime("add#1001", time.Now().UTC().Add(20*time.Millisecond), fn)
+			assert.NotNil(t, err)
+			assert.Equal(t, err, ErrKeyIsNotExists)
+			isExists, tm := schedule.read("add#1001")
+			assert.Equal(t, isExists, false)
+			assert.Nil(t, tm)
+		})
+
+		t.Run("Add key and replace time that has passed", func(t *testing.T) {
+			t.Parallel()
+			schedule := NewScheduler()
+			err := schedule.AddDate("add#1", time.Now().UTC().Add(24*time.Hour), fn)
+			assert.Nil(t, err)
+			isExists, tm := schedule.read("add#1")
+			assert.Equal(t, isExists, true)
+			assert.NotNil(t, tm)
+			err = schedule.ReplaceDateTime("add#1", time.Now().UTC().Add(-24*time.Hour), fn)
+			assert.NotNil(t, err)
+			assert.Equal(t, err, ErrDateTimeLessThanNow)
+		})
+	})
+}
