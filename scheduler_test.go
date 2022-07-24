@@ -394,11 +394,11 @@ func TestRescheduleDateTimeScheduler(t *testing.T) {
 				isExists, tm := schedule.read(value)
 				assert.Equal(t, isExists, true)
 				assert.NotNil(t, tm)
-				err := schedule.RescheduleDateTime(value, time.Now().UTC().Add(550*time.Millisecond))
+				err := schedule.RescheduleDateTime(value, time.Now().UTC().Add(500*time.Millisecond))
 				assert.Nil(t, err)
 			}
 
-			time.Sleep(750 * time.Millisecond)
+			time.Sleep(1 * time.Second)
 			for _, key := range randomList {
 				isExists, tm := schedule.read(key)
 				assert.Equal(t, isExists, false)
@@ -532,11 +532,11 @@ func TestReplaceDateTimeScheduler(t *testing.T) {
 				isExists, tm := schedule.read(value)
 				assert.Equal(t, isExists, true)
 				assert.NotNil(t, tm)
-				err := schedule.ReplaceDateTime(value, time.Now().UTC().Add(650*time.Millisecond), fn)
+				err := schedule.ReplaceDateTime(value, time.Now().UTC().Add(500*time.Millisecond), fn)
 				assert.Nil(t, err)
 			}
 
-			time.Sleep(750 * time.Millisecond)
+			time.Sleep(1 * time.Second)
 			for _, key := range randomList {
 				isExists, tm := schedule.read(key)
 				assert.Equal(t, isExists, false)
