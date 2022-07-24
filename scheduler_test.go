@@ -16,14 +16,14 @@ func TestAddDurationScheduler(t *testing.T) {
 		t.Run("Add one key", func(t *testing.T) {
 			t.Parallel()
 			key := "add#1"
-			duration := 1 * time.Millisecond
+			duration := 500 * time.Millisecond
 			schedule := NewScheduler()
 			err := schedule.Add(key, duration, fn)
 			assert.Nil(t, err)
 			isExists, tm := schedule.read(key)
 			assert.Equal(t, isExists, true)
 			assert.NotNil(t, tm)
-			time.Sleep(duration * 2)
+			time.Sleep(750 * time.Millisecond)
 			isExists, tm = schedule.read(key)
 			assert.Equal(t, isExists, false)
 			assert.Nil(t, tm)
