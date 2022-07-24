@@ -308,7 +308,7 @@ func TestRescheduleScheduler(t *testing.T) {
 					defer wg.Done()
 					key := fmt.Sprintf("add#%d", index)
 					duration := 10 * time.Millisecond
-					err := schedule.AddDate(key, time.Now().UTC().Add(duration), fn)
+					err := schedule.Add(key, duration, fn)
 					assert.Nil(t, err)
 				}(i)
 			}
@@ -342,7 +342,7 @@ func TestRescheduleScheduler(t *testing.T) {
 					defer wg.Done()
 					key := fmt.Sprintf("add#%d", index)
 					duration := 10 * time.Millisecond
-					err := schedule.AddDate(key, time.Now().UTC().Add(duration), fn)
+					err := schedule.Add(key, duration, fn)
 					assert.Nil(t, err)
 				}(i)
 			}
