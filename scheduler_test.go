@@ -417,14 +417,14 @@ func TestRescheduleDateTimeScheduler(t *testing.T) {
 				go func(index int) {
 					defer wg.Done()
 					key := fmt.Sprintf("add#%d", index)
-					duration := 100 * time.Millisecond
+					duration := 500 * time.Millisecond
 					err := schedule.AddDate(key, time.Now().UTC().Add(duration), fn)
 					assert.Nil(t, err)
 				}(i)
 			}
 
 			wg.Wait()
-			err := schedule.Reschedule("add#1001", 200*time.Millisecond)
+			err := schedule.Reschedule("add#1001", 750*time.Millisecond)
 			assert.NotNil(t, err)
 			assert.Equal(t, err, ErrKeyIsNotExists)
 			isExists, tm := schedule.read("add#1001")
@@ -459,7 +459,7 @@ func TestReplaceScheduler(t *testing.T) {
 				go func(index int) {
 					defer wg.Done()
 					key := fmt.Sprintf("add#%d", index)
-					err := schedule.Add(key, 100*time.Millisecond, fn)
+					err := schedule.Add(key, 500*time.Millisecond, fn)
 					assert.Nil(t, err)
 				}(i)
 			}
@@ -468,9 +468,9 @@ func TestReplaceScheduler(t *testing.T) {
 			isExists, tm := schedule.read(keyRandom)
 			assert.Equal(t, isExists, true)
 			assert.NotNil(t, tm)
-			err := schedule.Replace(keyRandom, 150*time.Millisecond, fn)
+			err := schedule.Replace(keyRandom, 650*time.Millisecond, fn)
 			assert.Nil(t, err)
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(750 * time.Millisecond)
 			isExists, tm = schedule.read(keyRandom)
 			assert.Equal(t, isExists, false)
 			assert.Nil(t, tm)
