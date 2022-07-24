@@ -34,8 +34,8 @@ func TestAddDurationScheduler(t *testing.T) {
 			var wg sync.WaitGroup
 			schedule := NewScheduler()
 			keyRandom := fmt.Sprintf("add#%d", randomNumber(1, 1000))
+			wg.Add(1000)
 			for i := 1; i <= 1000; i++ {
-				wg.Add(1)
 				go func(index int) {
 					defer wg.Done()
 					key := fmt.Sprintf("add#%d", index)

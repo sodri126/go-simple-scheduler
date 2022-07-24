@@ -21,4 +21,4 @@ jobs:
     - name: Test
       run: |
             go mod download
-            go test -v -cover -race ./... -coverprofile="coverage.out"
+            go test -v -cover -coverprofile="coverage.out" ./...
