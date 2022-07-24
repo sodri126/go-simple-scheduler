@@ -84,7 +84,7 @@ func (s *Scheduler) reschedule(key string, duration time.Duration) (err error) {
 	isExists, tm := s.read(key)
 
 	if !isExists {
-		err = ErrKeyIsExists
+		err = ErrKeyIsNotExists
 		return
 	}
 
@@ -147,7 +147,7 @@ func (s *Scheduler) Cancel(key string) (err error) {
 	return
 }
 
-func (s *Scheduler) RescheduleTime(key string, duration time.Duration) (err error) {
+func (s *Scheduler) Reschedule(key string, duration time.Duration) (err error) {
 	return s.reschedule(key, duration)
 }
 

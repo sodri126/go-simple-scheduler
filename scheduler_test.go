@@ -289,3 +289,71 @@ func TestCancelScheduler(t *testing.T) {
 		})
 	})
 }
+
+func TestRescheduleScheduler(t *testing.T) {
+	t.Run("Positive Case", func(t *testing.T) {
+		t.Run("Add multiple key and reschedule some keys", func(t *testing.T) {
+			t.Parallel()
+			var wg sync.WaitGroup
+			schedule := NewScheduler()
+			randomNo := randomNumber(1, 1000)
+			randomList := make(map[int]string)
+			for i := 1; i <= randomNo; i++ {
+				randomList[i] = fmt.Sprintf("add#%d", i)
+			}
+
+			wg.Add(1000)
+			for i := 1; i <= 1000; i++ {
+				go func(index int) {
+					defer wg.Done()
+					key := fmt.Sprintf("add#%d", index)
+					duration := 10 * time.Millisecond
+					err := schedule.AddDate(key, time.Now().UTC().Add(duration), fn)
+					assert.Nil(t, err)
+				}(i)
+			}
+
+			wg.Wait()
+			for _, value := range randomList {
+				isExists, tm := schedule.read(value)
+				assert.Equal(t, isExists, true)
+				assert.NotNil(t, tm)
+				err := schedule.Reschedule(value, 15*time.Millisecond)
+				assert.Nil(t, err)
+			}
+
+			time.Sleep(25 * time.Millisecond)
+			for _, key := range randomList {
+				isExists, tm := schedule.read(key)
+				assert.Equal(t, isExists, false)
+				assert.Nil(t, tm)
+			}
+		})
+	})
+
+	t.Run("Negative Case", func(t *testing.T) {
+		t.Run("Add multiple key and reschedule key is not exists", func(t *testing.T) {
+			t.Parallel()
+			var wg sync.WaitGroup
+			schedule := NewScheduler()
+			wg.Add(1000)
+			for i := 1; i <= 1000; i++ {
+				go func(index int) {
+					defer wg.Done()
+					key := fmt.Sprintf("add#%d", index)
+					duration := 10 * time.Millisecond
+					err := schedule.AddDate(key, time.Now().UTC().Add(duration), fn)
+					assert.Nil(t, err)
+				}(i)
+			}
+
+			wg.Wait()
+			err := schedule.Reschedule("add#1001", 20*time.Millisecond)
+			assert.NotNil(t, err)
+			assert.Equal(t, err, ErrKeyIsNotExists)
+			isExists, tm := schedule.read("add#1001")
+			assert.Equal(t, isExists, false)
+			assert.Nil(t, tm)
+		})
+	})
+}
