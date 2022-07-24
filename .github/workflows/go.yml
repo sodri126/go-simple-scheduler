@@ -9,16 +9,35 @@ on:
 jobs:
 
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [ 1.17.x, 1.18.x ]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+    runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.18
+        go-version: ${{ matrix.go-version }}
+
+    - name: Restore Cache
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-v1-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-v1-go-
 
     - name: Test
       run: |
             go mod download
-            go test -v -cover -coverprofile="coverage.out" ./...
+            go test -v -cover -race -coverprofile="coverage.out" ./...
+
+    - name: Send Coverage
+      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.18.x'
+      uses: shogo82148/actions-goveralls@v1
+      with:
+        path-to-profile: coverage.out
