@@ -41,7 +41,7 @@ func TestAddDurationScheduler(t *testing.T) {
 			for i := 1; i <= 1000; i++ {
 				go func(index int) {
 					key := fmt.Sprintf("add#%d", index)
-					err := schedule.Add(key, 100*time.Millisecond, fn)
+					err := schedule.Add(key, 500*time.Millisecond, fn)
 					assert.Nil(t, err)
 					wg.Done()
 				}(i)
