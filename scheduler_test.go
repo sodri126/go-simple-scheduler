@@ -51,7 +51,7 @@ func TestAddDurationScheduler(t *testing.T) {
 			isExists, ds := schedule.read(keyRandom)
 			assert.Equal(t, isExists, true)
 			assert.NotNil(t, ds)
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(750 * time.Millisecond)
 			isExists, ds = schedule.read(keyRandom)
 			assert.Equal(t, isExists, false)
 			assert.Nil(t, ds)
