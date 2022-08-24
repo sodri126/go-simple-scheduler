@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"io"
 	"sync"
 	"time"
 )
@@ -13,10 +14,16 @@ const (
 )
 
 type Scheduler struct {
-	schedulers map[string]*time.Timer
-	mutex      sync.RWMutex
-	config     Config
-	locationTZ *time.Location
+	schedulers      map[string]*detailScheduler
+	schedulersSlice detailSchedulers
+	mutex           sync.RWMutex
+	config          Config
+	locationTZ      *time.Location
+}
+
+type paramScheduler struct {
+	duration time.Duration
+	dateTime time.Time
 }
 
 type Config struct {
@@ -30,7 +37,7 @@ func NewScheduler(configs ...Config) *Scheduler {
 	}
 
 	scheduler := &Scheduler{
-		schedulers: make(map[string]*time.Timer),
+		schedulers: make(map[string]*detailScheduler),
 		mutex:      sync.RWMutex{},
 		config:     config,
 	}
@@ -47,15 +54,15 @@ func (s *Scheduler) loadTZ() {
 	}
 }
 
-func (s *Scheduler) read(key string) (bool, *time.Timer) {
+func (s *Scheduler) read(key string) (bool, *detailScheduler) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	tm, isExists := s.schedulers[key]
-	return isExists, tm
+	ds, isExists := s.schedulers[key]
+	return isExists, ds
 }
 
-func (s *Scheduler) add(key string, duration time.Duration, fn FnScheduler) (err error) {
+func (s *Scheduler) add(key string, param *paramScheduler, fn FnScheduler) (err error) {
 	isExists, _ := s.read(key)
 	if isExists {
 		err = ErrKeyIsExists
@@ -65,52 +72,70 @@ func (s *Scheduler) add(key string, duration time.Duration, fn FnScheduler) (err
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	s.schedulers[key] = time.AfterFunc(duration, func() {
-		fn(context.Background())
-		s.deleteKey(key)
-	})
+	ds := &detailScheduler{
+		key: key,
+		timer: time.AfterFunc(param.duration, func() {
+			fn(context.Background())
+			_, ds := s.read(key)
+			s.deleteScheduler(key)
+			s.deleteSchedulerSlice(ds)
+		}),
+		dateTime: param.dateTime,
+		idx:      s.schedulersSlice.Total(),
+	}
+
+	s.schedulersSlice.Add(ds)
+	s.schedulers[key] = ds
 
 	return
 }
 
-func (s *Scheduler) deleteKey(key string) {
+func (s *Scheduler) deleteScheduler(key string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	delete(s.schedulers, key)
 }
 
-func (s *Scheduler) reschedule(key string, duration time.Duration) (err error) {
-	isExists, tm := s.read(key)
+func (s *Scheduler) deleteSchedulerSlice(ds *detailScheduler) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.schedulersSlice.Remove(ds.idx)
+}
+
+func (s *Scheduler) reschedule(key string, param *paramScheduler) (err error) {
+	isExists, ds := s.read(key)
 
 	if !isExists {
 		err = ErrKeyIsNotExists
 		return
 	}
 
-	tm.Reset(duration)
+	ds.timer.Reset(param.duration)
 	return
 }
 
 func (s *Scheduler) cancel(key string) (err error) {
-	isExists, tm := s.read(key)
+	isExists, ds := s.read(key)
 	if !isExists {
 		err = ErrKeyIsNotExists
 		return
 	}
 
-	tm.Stop()
-	s.deleteKey(key)
+	ds.timer.Stop()
+	s.deleteScheduler(key)
+	s.deleteSchedulerSlice(ds)
 	return
 }
 
-func (s *Scheduler) replace(key string, duration time.Duration, fn FnScheduler) (err error) {
+func (s *Scheduler) replace(key string, param *paramScheduler, fn FnScheduler) (err error) {
 	err = s.cancel(key)
 	if err != nil {
 		return
 	}
 
-	err = s.add(key, duration, fn)
+	err = s.add(key, param, fn)
 	return
 }
 
@@ -129,8 +154,29 @@ func (s *Scheduler) subtractDateTime(dateTime time.Time) (duration time.Duration
 	return
 }
 
+func (s *Scheduler) fromDurationToDateTime(duration time.Duration) time.Time {
+	return time.Now().In(s.locationTZ).Add(duration)
+}
+
+func (s *Scheduler) toResponseScheduler() (res []*ResponseScheduler) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	for i := 0; i < len(s.schedulersSlice); i++ {
+		res = append(res, &ResponseScheduler{
+			Key:  s.schedulersSlice[i].key,
+			Time: s.schedulersSlice[i].dateTime,
+		})
+	}
+
+	return
+}
+
 func (s *Scheduler) Add(key string, duration time.Duration, fn FnScheduler) (err error) {
-	return s.add(key, duration, fn)
+	return s.add(key, &paramScheduler{
+		duration: duration,
+		dateTime: s.fromDurationToDateTime(duration),
+	}, fn)
 }
 
 func (s *Scheduler) AddDate(key string, dateTime time.Time, fn FnScheduler) (err error) {
@@ -139,7 +185,10 @@ func (s *Scheduler) AddDate(key string, dateTime time.Time, fn FnScheduler) (err
 		return
 	}
 
-	return s.add(key, duration, fn)
+	return s.add(key, &paramScheduler{
+		duration: duration,
+		dateTime: dateTime.In(s.locationTZ),
+	}, fn)
 }
 
 func (s *Scheduler) Cancel(key string) (err error) {
@@ -148,7 +197,10 @@ func (s *Scheduler) Cancel(key string) (err error) {
 }
 
 func (s *Scheduler) Reschedule(key string, duration time.Duration) (err error) {
-	return s.reschedule(key, duration)
+	return s.reschedule(key, &paramScheduler{
+		duration: duration,
+		dateTime: s.fromDurationToDateTime(duration),
+	})
 }
 
 func (s *Scheduler) RescheduleDateTime(key string, dateTime time.Time) (err error) {
@@ -157,11 +209,17 @@ func (s *Scheduler) RescheduleDateTime(key string, dateTime time.Time) (err erro
 		return
 	}
 
-	return s.reschedule(key, duration)
+	return s.reschedule(key, &paramScheduler{
+		duration: duration,
+		dateTime: dateTime.In(s.locationTZ),
+	})
 }
 
 func (s *Scheduler) Replace(key string, duration time.Duration, fn FnScheduler) (err error) {
-	err = s.replace(key, duration, fn)
+	err = s.replace(key, &paramScheduler{
+		duration: duration,
+		dateTime: s.fromDurationToDateTime(duration),
+	}, fn)
 	return
 }
 
@@ -171,6 +229,20 @@ func (s *Scheduler) ReplaceDateTime(key string, dateTime time.Time, fn FnSchedul
 		return
 	}
 
-	err = s.replace(key, duration, fn)
+	err = s.replace(key, &paramScheduler{
+		duration: duration,
+		dateTime: dateTime.In(s.locationTZ),
+	}, fn)
 	return
+}
+
+func (s *Scheduler) List(w io.Writer, lcs ...ListConverter) (n int, err error) {
+	responseScheduler := s.toResponseScheduler()
+	lc := NewDefaultResponse()
+	if len(lcs) > 0 {
+		lc = lcs[0]
+	}
+
+	bytes, err := lc.Convert(responseScheduler)
+	return w.Write(bytes)
 }
