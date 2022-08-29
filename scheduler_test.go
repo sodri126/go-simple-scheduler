@@ -612,7 +612,7 @@ func TestListConverter(t *testing.T) {
 
 		responseSchedulers := schedule.toResponseScheduler()
 		tw := table.NewWriter()
-		tw.AppendHeader(table.Row{"No.", "Key", "DateTime Time"})
+		tw.AppendHeader(table.Row{"No.", "Key", "Date Time"})
 		for i := 0; i < len(responseSchedulers); i++ {
 			tw.AppendRow(table.Row{i + 1, responseSchedulers[i].Key, responseSchedulers[i].Time})
 		}
